@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>⚡ Truecaller BD Serialized Extractor</title>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Top Header -->
+    <header class="app-header">
+      <div class="header-left">
+        <div class="brand-logo">
+          <span class="brand-icon">⚡</span>
+          <div class="brand-text">
+            <h1>Truecaller BD Extractor</h1>
+            <span class="brand-subtitle">Automated Serialized Intelligence Engine</span>
+          </div>
+        </div>
+        <div class="bot-badge">
+          <span class="bot-icon">🤖</span>
+          <span>@TrueCalleRobot</span>
+        </div>
+      </div>
+
+      <div class="header-right">
+        <div class="status-pill" id="tgStatusPill">
+          <span class="status-dot pulse-offline" id="tgStatusDot"></span>
+          <span class="status-label" id="tgStatusLabel">Connecting to Telegram...</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Grid Workspace -->
+    <main class="app-main">
+      <!-- Top Row: Config & Controls (Left) + Radar Scanner (Right) -->
+      <section class="control-row">
+        <!-- Configuration Card -->
+        <div class="glass-card config-card">
+          <div class="card-header">
+            <div class="card-title">
+              <span class="icon">⚙️</span>
+              <h2>Serial Generator & Configuration</h2>
+            </div>
+            <span class="badge-subtle">Bangladeshi Operators</span>
+          </div>
+
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="startNumber">Starting Number</label>
+              <div class="input-wrap">
+                <span class="input-prefix">🇧🇩</span>
+                <input type="text" id="startNumber" value="+8801795664120" placeholder="+88017XXXXXXXX">
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="presetOperator">Preset Operator</label>
+              <select id="presetOperator" class="select-styled">
+                <option value="Grameenphone (017)" selected>Grameenphone (017)</option>
+                <option value="Grameenphone (013)">Grameenphone (013)</option>
+                <option value="Robi (018)">Robi (018)</option>
+                <option value="Banglalink (019)">Banglalink (019)</option>
+                <option value="Banglalink (014)">Banglalink (014)</option>
+                <option value="Airtel (016)">Airtel (016)</option>
+                <option value="Teletalk (015)">Teletalk (015)</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="batchCount">Batch Quantity</label>
+              <input type="number" id="batchCount" value="20" min="1" max="1000">
+            </div>
+
+            <div class="form-group">
+              <label>Delay Interval (s)</label>
+              <div class="range-inputs">
+                <input type="number" id="minDelay" value="20" min="10" max="120" title="Minimum Delay">
+                <span class="sep">to</span>
+                <input type="number" id="maxDelay" value="30" min="15" max="180" title="Maximum Delay">
+              </div>
+            </div>
+          </div>
+
+          <!-- Single Lookup & Main Actions Row -->
+          <div class="actions-container">
+            <div class="single-lookup-box">
+              <label for="singleNumber">Instant Single Lookup</label>
+              <div class="lookup-input-group">
+                <input type="text" id="singleNumber" placeholder="+8801XXXXXXXXX">
+                <button type="button" class="btn btn-secondary" id="btnSingleLookup" disabled>
+                  <span>🔍 Check</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="button-group">
+              <button type="button" class="btn btn-primary" id="btnStart" disabled>
+                <span class="btn-icon">▶</span>
+                <span>Start Automation</span>
+              </button>
+              <button type="button" class="btn btn-warning" id="btnPause" disabled>
+                <span class="btn-icon">⏸</span>
+                <span>Pause</span>
+              </button>
+              <button type="button" class="btn btn-danger" id="btnStop" disabled>
+                <span class="btn-icon">⏹</span>
+                <span>Stop</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Live Scanner & Progress Card -->
+        <div class="glass-card scanner-card">
+          <div class="scanner-header">
+            <div class="radar-status">
+              <div class="radar-ping" id="radarPing"></div>
+              <span class="radar-text" id="scannerStatusText">System Idle</span>
+            </div>
+            <div class="spinner-display" id="spinnerChar">●</div>
+          </div>
+
+          <!-- Active Target Display -->
+          <div class="target-display-box">
+            <span class="target-sublabel">ACTIVE TARGET</span>
+            <div class="target-number" id="currentTargetNum">Ready to extract</div>
+          </div>
+
+          <!-- Progress Bar & Countdown Ring -->
+          <div class="progress-section">
+            <div class="progress-info-row">
+              <span>Batch Progress: <b id="progressFraction">0 / 0</b></span>
+              <span id="progressPercentage">0%</span>
+            </div>
+            <div class="progress-bar-track">
+              <div class="progress-bar-fill" id="progressBarFill" style="width: 0%"></div>
+            </div>
+
+            <div class="countdown-meter">
+              <span class="countdown-label">Next Request In:</span>
+              <span class="countdown-val" id="countdownVal">--</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Metrics Row -->
+      <section class="metrics-grid">
+        <div class="metric-card metric-indigo">
+          <div class="metric-accent"></div>
+          <div class="metric-body">
+            <span class="metric-label">TOTAL SCANNED</span>
+            <span class="metric-value" id="metricTotal">0</span>
+          </div>
+          <div class="metric-icon-bg">🔢</div>
+        </div>
+
+        <div class="metric-card metric-emerald">
+          <div class="metric-accent"></div>
+          <div class="metric-body">
+            <span class="metric-label">NAMES FOUND</span>
+            <span class="metric-value" id="metricFound">0</span>
+          </div>
+          <div class="metric-icon-bg">👤</div>
+        </div>
+
+        <div class="metric-card metric-slate">
+          <div class="metric-accent"></div>
+          <div class="metric-body">
+            <span class="metric-label">NOT FOUND</span>
+            <span class="metric-value" id="metricNotFound">0</span>
+          </div>
+          <div class="metric-icon-bg">🚫</div>
+        </div>
+
+        <div class="metric-card metric-cyan">
+          <div class="metric-accent"></div>
+          <div class="metric-body">
+            <span class="metric-label">SUCCESS RATE</span>
+            <span class="metric-value" id="metricRate">0%</span>
+          </div>
+          <div class="metric-icon-bg">📈</div>
+        </div>
+      </section>
+
+      <!-- Extracted Results Table Section -->
+      <section class="glass-card table-section">
+        <div class="table-header-bar">
+          <div class="table-title-wrap">
+            <span class="icon">📋</span>
+            <h2>Extracted Contact Records</h2>
+            <span class="count-badge" id="tableCountBadge">0 Records</span>
+          </div>
+
+          <div class="table-actions">
+            <div class="search-filter-box">
+              <span class="search-icon">🔍</span>
+              <input type="text" id="tableSearch" placeholder="Filter by phone, name, carrier...">
+            </div>
+            <button type="button" class="btn btn-export" id="btnExportCsv">
+              <span>💾 Export CSV</span>
+            </button>
+            <button type="button" class="btn btn-ghost" id="btnClearTable">
+              <span>🗑 Clear</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="table-container">
+          <table class="data-table" id="resultsTable">
+            <thead>
+              <tr>
+                <th style="width: 50px;">#</th>
+                <th style="width: 90px;">Time</th>
+                <th style="width: 150px;">Phone Number</th>
+                <th>Name</th>
+                <th style="width: 140px;">Carrier</th>
+                <th style="width: 110px;">Country</th>
+                <th style="width: 90px;">WhatsApp</th>
+                <th style="width: 90px;">Telegram</th>
+                <th style="width: 110px;">Status</th>
+              </tr>
+            </thead>
+            <tbody id="tableBody">
+              <tr class="empty-row" id="emptyStateRow">
+                <td colspan="9">
+                  <div class="empty-state">
+                    <span class="empty-icon">📭</span>
+                    <p>No contact records extracted yet. Set starting number and click <b>Start Automation</b>.</p>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Live Activity Console Log -->
+      <section class="glass-card console-section">
+        <div class="console-header">
+          <div class="console-title">
+            <span class="icon">🖥</span>
+            <h3>Real-Time Activity Stream</h3>
+          </div>
+          <div class="console-actions">
+            <button type="button" class="console-btn" id="btnClearLogs" title="Clear Console">Clear</button>
+          </div>
+        </div>
+        <div class="console-body" id="consoleBody">
+          <!-- Logs will stream here dynamically -->
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

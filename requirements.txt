@@ -1,0 +1,8 @@
+pyaes==1.6.1
+pyasn1==0.6.4
+python-dotenv==1.2.1
+rsa==4.9.1
+Telethon==1.44.0
+fastapi==0.128.8
+uvicorn==0.39.0
+websockets==15.0.1
