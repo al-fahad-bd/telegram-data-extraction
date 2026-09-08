@@ -161,6 +161,17 @@ Direct interactive terminal session without any graphical interface:
 python main.py --cli
 ```
 
+### 4. Multi-Account Pool Management
+To scale past the bot's ~50 searches/day limit, add extra Telegram accounts to your pool:
+```bash
+# Authorize and add a new account session (e.g. account2)
+python main.py --add-account account2
+
+# List all accounts in your session pool and their current status
+python main.py --list-accounts
+```
+When one account hits the daily quota, the system **automatically switches to the next account in the pool** and retries the number without halting your batch!
+
 ---
 
 ## 📱 Supported Countries & Operators

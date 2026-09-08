@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,9 +8,12 @@
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link
+    href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
+    rel="stylesheet">
   <link rel="stylesheet" href="/static/style.css">
 </head>
+
 <body>
   <div class="app-container">
     <!-- Top Header -->
@@ -29,6 +33,24 @@
       </div>
 
       <div class="header-right">
+        <!-- Telegram Multi-Account Pool Controls -->
+        <div class="pool-widget" id="poolWidget">
+          <div class="pool-selector-wrap">
+            <span class="pool-icon">👥</span>
+            <select id="accountPoolSelect" class="account-select" title="Active Telegram Account / Switch Session">
+              <option value="telegram">Loading accounts...</option>
+            </select>
+          </div>
+          <button type="button" class="btn-autoswitch active" id="btnToggleAutoSwitch"
+            title="Toggle automatic switching to next Telegram account when quota limit is reached">
+            <span class="dot">●</span> <span id="autoSwitchLabel">Auto-Switch: ON</span>
+          </button>
+          <button type="button" class="btn-add-account" id="btnOpenAddAccountModal"
+            title="Connect another Telegram account to session pool">
+            <span class="plus-icon">＋</span> Add Account
+          </button>
+        </div>
+
         <div class="status-pill" id="tgStatusPill">
           <span class="status-dot pulse-offline" id="tgStatusDot"></span>
           <span class="status-label" id="tgStatusLabel">Connecting to Telegram...</span>
@@ -252,7 +274,7 @@
                 <th>Name</th>
                 <th style="width: 140px;">Carrier</th>
                 <th style="width: 110px;">Country</th>
-                <th style="width: 90px;">WhatsApp</th>
+                <th style="width: 115px;">WhatsApp</th>
                 <th style="width: 90px;">Telegram</th>
                 <th style="width: 110px;">Status</th>
               </tr>
@@ -289,6 +311,133 @@
     </main>
   </div>
 
+  <!-- Add Telegram Account Modal -->
+  <div class="modal-overlay hidden" id="addAccountModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-header-left">
+          <span class="modal-badge-icon">🔐</span>
+          <div>
+            <h3 class="modal-title" id="modalTitle">Connect Telegram Account</h3>
+            <p class="modal-subtitle">Add another account to your multi-account rotation pool</p>
+          </div>
+        </div>
+        <button type="button" class="btn-modal-close" id="btnCloseAddAccountModal" aria-label="Close modal">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <!-- Error / Alert Banner -->
+        <div class="modal-alert hidden" id="modalAlert">
+          <span class="alert-icon" id="modalAlertIcon">⚠️</span>
+          <span class="alert-text" id="modalAlertText"></span>
+        </div>
+
+        <!-- Step Indicator -->
+        <div class="modal-steps">
+          <div class="step-badge active" id="stepBadge1">
+            <span class="step-num">1</span>
+            <span class="step-name">Phone Number</span>
+          </div>
+          <div class="step-connector" id="stepConn1"></div>
+          <div class="step-badge" id="stepBadge2">
+            <span class="step-num">2</span>
+            <span class="step-name">Telegram OTP</span>
+          </div>
+          <div class="step-connector" id="stepConn2"></div>
+          <div class="step-badge" id="stepBadge3">
+            <span class="step-num">3</span>
+            <span class="step-name">Connected</span>
+          </div>
+        </div>
+
+        <!-- Step 1: Phone & Session Name -->
+        <div class="modal-step-content" id="step1Content">
+          <div class="form-group">
+            <label for="newSessionName">Session Identifier / Label</label>
+            <div class="input-with-hint">
+              <input type="text" id="newSessionName" class="form-input" placeholder="e.g. account3, work_tg" spellcheck="false" autocomplete="off">
+              <span class="input-hint">Alphanumeric label to distinguish this account</span>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="newPhoneNumber">Telegram Phone Number (International)</label>
+            <div class="input-with-hint">
+              <input type="tel" id="newPhoneNumber" class="form-input mono" placeholder="+88017XXXXXXXX" spellcheck="false" autocomplete="tel">
+              <span class="input-hint">Include country dial code (e.g. +880, +1, +44, +91)</span>
+            </div>
+          </div>
+
+          <div class="modal-info-box">
+            <span class="info-icon">ℹ️</span>
+            <p>Telegram will send an official 5-digit login code to your Telegram app (or SMS). Bot tokens cannot be used as bots cannot query other bots.</p>
+          </div>
+
+          <div class="modal-actions">
+            <button type="button" class="btn-modal-cancel" id="btnCancelStep1">Cancel</button>
+            <button type="button" class="btn-modal-primary" id="btnSendCode">
+              <span class="btn-text">Send Login Code</span>
+              <span class="btn-spinner hidden" id="sendCodeSpinner"></span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Step 2: OTP & optional 2FA -->
+        <div class="modal-step-content hidden" id="step2Content">
+          <div class="otp-sent-info">
+            <span class="otp-icon">📲</span>
+            <div>
+              <p class="otp-target-text">Code sent to <strong id="displaySentPhone">+8801...</strong></p>
+              <p class="otp-subtext">Check your official Telegram app messages</p>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="otpCodeInput">5-Digit Telegram Code</label>
+            <input type="text" id="otpCodeInput" class="form-input mono text-center otp-input" placeholder="• • • • •" maxlength="8" autocomplete="one-time-code">
+          </div>
+
+          <!-- 2FA Password Field (dynamic / revealed when required) -->
+          <div class="form-group hidden" id="group2faPassword">
+            <label for="pwd2faInput">Two-Step Verification (2FA) Password</label>
+            <input type="password" id="pwd2faInput" class="form-input" placeholder="Enter your 2FA cloud password" autocomplete="current-password">
+            <span class="input-hint text-warning">2FA is enabled on this account. Enter your password to complete authentication.</span>
+          </div>
+
+          <div class="modal-actions">
+            <button type="button" class="btn-modal-cancel" id="btnBackToStep1">Back / Change</button>
+            <button type="button" class="btn-modal-primary" id="btnVerifyCode">
+              <span class="btn-text">Verify & Connect</span>
+              <span class="btn-spinner hidden" id="verifyCodeSpinner"></span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Step 3: Success State -->
+        <div class="modal-step-content hidden" id="step3Content">
+          <div class="success-card">
+            <div class="success-check-circle">✓</div>
+            <h4 class="success-heading">Account Connected Successfully!</h4>
+            <div class="account-profile-card">
+              <div class="profile-avatar">👤</div>
+              <div class="profile-details">
+                <div class="profile-name" id="successUserName">Telegram User</div>
+                <div class="profile-sub" id="successUserMeta">@username • +8801...</div>
+                <span class="profile-badge">🟢 Ready in Session Pool</span>
+              </div>
+            </div>
+            <p class="success-note">This account is now registered in your pool and available for immediate use and automatic quota rotation.</p>
+          </div>
+
+          <div class="modal-actions">
+            <button type="button" class="btn-modal-primary full-width" id="btnFinishAddAccount">Done & Refresh Pool</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script src="/static/app.js"></script>
 </body>
+
 </html>

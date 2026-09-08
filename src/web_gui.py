@@ -3,6 +3,7 @@ import csv
 import io
 import os
 import random
+import re
 import subprocess
 import webbrowser
 from datetime import datetime
@@ -13,16 +14,36 @@ from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
-from telethon import TelegramClient
+from telethon import TelegramClient, errors, utils
+from telethon.tl.functions.contacts import ResolvePhoneRequest
 from telethon.tl.types import User
 
 from src.bot_handler import send_to_bot
 from src.generator import GLOBAL_COUNTRY_CODES, generate_serial_numbers, is_valid_phone_number
 from src.parser import parse_bot_response
+from src.session_manager import SESSIONS_DIR, SessionPoolManager, _disconnect_client
 from src.telegram_client import api_hash, api_id
 
 BOT_USERNAME = "TrueCalleRobot"
 STATIC_DIR = Path(__file__).resolve().parent / "static"
+
+
+async def verify_telegram_registered(client: Optional[TelegramClient], phone: str) -> bool:
+    """
+    Directly checks Telegram servers via MTProto whether a phone number has an active Telegram account.
+    Returns True if registered, False otherwise.
+    """
+    if not client:
+        return False
+    try:
+        clean = re.sub(r"[^\d]", "", phone)
+        res = await client(ResolvePhoneRequest(clean))
+        users = getattr(res, "users", None)
+        return bool(users and len(users) > 0)
+    except errors.PhoneNotOccupiedError:
+        return False
+    except Exception:
+        return False
 
 
 class ConnectionManager:
@@ -64,8 +85,28 @@ class LookupRequest(BaseModel):
     phone_number: str
 
 
+class SwitchAccountRequest(BaseModel):
+    session_name: str
+
+
+class RequestCodeRequest(BaseModel):
+    session_name: str
+    phone_number: str
+
+
+class VerifyCodeRequest(BaseModel):
+    session_name: str
+    code: str
+    password: Optional[str] = None
+
+
+class CancelAuthRequest(BaseModel):
+    session_name: str
+
+
 class ExtractorEngine:
     def __init__(self) -> None:
+        self.pool_manager = SessionPoolManager()
         self.tg_client: Optional[TelegramClient] = None
         self.is_connected = False
         self.user_display = ""
@@ -85,39 +126,31 @@ class ExtractorEngine:
         try:
             await ws_manager.broadcast(
                 "log",
-                {"message": "Initializing Telegram Telethon client...", "level": "info"},
+                {"message": "Scanning and initializing Telegram session pool...", "level": "info"},
             )
-            self.tg_client = TelegramClient("sessions/telegram", api_id, str(api_hash))
-            await self.tg_client.connect()
-
-            if not await self.tg_client.is_user_authorized():
-                self.is_connected = False
-                self.connection_error = "Session not authorized. Run CLI to log in."
+            success, msg = await self.pool_manager.initialize_pool()
+            if success and self.pool_manager.active_client:
+                self.tg_client = self.pool_manager.active_client
+                self.is_connected = True
+                self.connection_error = ""
+                acc_info = self.pool_manager.get_active_account_info()
+                self.user_display = acc_info["display_name"] if acc_info else "Telegram User"
                 await self.broadcast_tg_status()
                 await ws_manager.broadcast(
                     "log",
-                    {"message": "Telegram session requires authorization.", "level": "warning"},
+                    {
+                        "message": f"Active session: '{self.pool_manager.active_session_name}' ({self.user_display})",
+                        "level": "success",
+                    },
                 )
-                return
-
-            me = await self.tg_client.get_me()
-            if isinstance(me, User):
-                name = me.first_name or "User"
-                username = f"@{me.username}" if me.username else ""
-                self.user_display = f"{name} {username}".strip()
             else:
-                self.user_display = "Telegram User"
-
-            self.is_connected = True
-            self.connection_error = ""
-            await self.broadcast_tg_status()
-            await ws_manager.broadcast(
-                "log",
-                {
-                    "message": f"Successfully connected as {self.user_display}",
-                    "level": "success",
-                },
-            )
+                self.is_connected = False
+                self.connection_error = msg or "Session not authorized. Run CLI or --add-account to log in."
+                await self.broadcast_tg_status()
+                await ws_manager.broadcast(
+                    "log",
+                    {"message": f"Telegram session setup: {self.connection_error}", "level": "warning"},
+                )
         except Exception as e:
             self.is_connected = False
             self.connection_error = str(e)
@@ -134,6 +167,9 @@ class ExtractorEngine:
                 "connected": self.is_connected,
                 "user_display": self.user_display,
                 "error": self.connection_error,
+                "active_session": self.pool_manager.active_session_name,
+                "accounts_pool": self.pool_manager.get_pool_summary(),
+                "auto_switch": self.pool_manager.auto_switch,
             },
         )
 
@@ -179,6 +215,11 @@ class ExtractorEngine:
         raw_response = await send_to_bot(self.tg_client, BOT_USERNAME, cleaned)
         parsed = parse_bot_response(raw_response, cleaned)
 
+        is_found = (parsed.get("status") == "Found")
+        has_tg = False
+        if is_found:
+            has_tg = await verify_telegram_registered(self.tg_client, cleaned)
+
         record = {
             "id": len(self.records) + 1,
             "time": datetime.now().strftime("%H:%M:%S"),
@@ -186,8 +227,8 @@ class ExtractorEngine:
             "name": parsed.get("name", "Not Found"),
             "carrier": parsed.get("carrier", "Unknown"),
             "country": parsed.get("country", "Unknown"),
-            "has_whatsapp": parsed.get("has_whatsapp", False),
-            "has_telegram": parsed.get("has_telegram", False),
+            "has_whatsapp": is_found,
+            "has_telegram": has_tg,
             "status": parsed.get("status", "Unknown"),
             "timestamp": parsed.get("timestamp", datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
             "raw_text": parsed.get("raw_text", ""),
@@ -286,6 +327,11 @@ class ExtractorEngine:
                 raw = await send_to_bot(self.tg_client, BOT_USERNAME, phone)
                 parsed = parse_bot_response(raw, phone)
 
+                is_found = (parsed.get("status") == "Found")
+                has_tg = False
+                if is_found:
+                    has_tg = await verify_telegram_registered(self.tg_client, phone)
+
                 record = {
                     "id": len(self.records) + 1,
                     "time": datetime.now().strftime("%H:%M:%S"),
@@ -293,8 +339,8 @@ class ExtractorEngine:
                     "name": parsed.get("name", "Not Found"),
                     "carrier": parsed.get("carrier", "Unknown"),
                     "country": parsed.get("country", "Unknown"),
-                    "has_whatsapp": parsed.get("has_whatsapp", False),
-                    "has_telegram": parsed.get("has_telegram", False),
+                    "has_whatsapp": is_found,
+                    "has_telegram": has_tg,
                     "status": parsed.get("status", "Unknown"),
                     "timestamp": parsed.get("timestamp", datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
                     "raw_text": parsed.get("raw_text", ""),
@@ -313,17 +359,77 @@ class ExtractorEngine:
                     },
                 )
 
-                # If bot daily limit reached, auto-pause to avoid wasting attempts
+                # If bot daily limit reached, check if we can auto-switch to another account!
                 if record["status"] == "Rate Limited":
-                    await ws_manager.broadcast(
-                        "log",
-                        {
-                            "message": "⚠️ Daily search limit reached on Truecaller bot. Pausing automation.",
-                            "level": "warning",
-                        },
-                    )
-                    self.is_paused = True
-                    await self.broadcast_automation_state()
+                    raw_limit_msg = record.get("raw_text", "")
+                    self.pool_manager.mark_active_rate_limited(raw_limit_msg)
+                    if self.pool_manager.auto_switch:
+                        await ws_manager.broadcast(
+                            "log",
+                            {
+                                "message": f"⚠️ Daily limit reached on '{self.pool_manager.active_session_name}'. Auto-switching to next Telegram account...",
+                                "level": "warning",
+                            },
+                        )
+                        switched, switch_msg = await self.pool_manager.switch_to_next_available()
+                        if switched and self.pool_manager.active_client:
+                            self.tg_client = self.pool_manager.active_client
+                            acc = self.pool_manager.get_active_account_info()
+                            self.user_display = acc["display_name"] if acc else "Telegram User"
+                            await self.broadcast_tg_status()
+                            await ws_manager.broadcast(
+                                "log",
+                                {
+                                    "message": f"🔄 Switched to '{self.pool_manager.active_session_name}' ({self.user_display}). Retrying query for {phone}...",
+                                    "level": "success",
+                                },
+                            )
+                            # Retry this exact phone number with the new account
+                            retry_raw = await send_to_bot(self.tg_client, BOT_USERNAME, phone)
+                            retry_parsed = parse_bot_response(retry_raw, phone)
+                            is_retry_found = (retry_parsed.get("status") == "Found")
+                            has_retry_tg = False
+                            if is_retry_found:
+                                has_retry_tg = await verify_telegram_registered(self.tg_client, phone)
+                            record.update({
+                                "name": retry_parsed.get("name", "Not Found"),
+                                "carrier": retry_parsed.get("carrier", "Unknown"),
+                                "country": retry_parsed.get("country", "Unknown"),
+                                "has_whatsapp": is_retry_found,
+                                "has_telegram": has_retry_tg,
+                                "status": retry_parsed.get("status", "Unknown"),
+                                "raw_text": retry_parsed.get("raw_text", ""),
+                            })
+                            await ws_manager.broadcast("new_record", record)
+                            await self.broadcast_metrics()
+                            log_level = "success" if record["status"] == "Found" else "info"
+                            await ws_manager.broadcast(
+                                "log",
+                                {
+                                    "message": f"[{current_index}/{total}] Retry result: {record['name']} | {record['carrier']} ({record['status']})",
+                                    "level": log_level,
+                                },
+                            )
+                        else:
+                            await ws_manager.broadcast(
+                                "log",
+                                {
+                                    "message": f"❌ {switch_msg}. Pausing automation.",
+                                    "level": "error",
+                                },
+                            )
+                            self.is_paused = True
+                            await self.broadcast_automation_state()
+                    else:
+                        await ws_manager.broadcast(
+                            "log",
+                            {
+                                "message": "⚠️ Daily search limit reached. Auto-switch is disabled. Pausing batch.",
+                                "level": "warning",
+                            },
+                        )
+                        self.is_paused = True
+                        await self.broadcast_automation_state()
 
                 # Delay before next query if not last
                 if current_index < total and not self.stop_requested:
@@ -467,6 +573,216 @@ async def api_clear() -> Dict[str, str]:
     await ws_manager.broadcast("clear_table", {})
     await engine.broadcast_metrics()
     return {"status": "cleared"}
+
+
+@app.get("/api/accounts")
+async def api_get_accounts() -> Dict[str, Any]:
+    return {
+        "active": engine.pool_manager.active_session_name,
+        "auto_switch": engine.pool_manager.auto_switch,
+        "accounts": engine.pool_manager.get_pool_summary(),
+    }
+
+
+@app.post("/api/accounts/switch")
+async def api_switch_account(req: SwitchAccountRequest) -> Dict[str, Any]:
+    if engine.is_running and not engine.is_paused:
+        raise HTTPException(status_code=400, detail="Please pause automation before manually switching accounts.")
+    success, msg = await engine.pool_manager.switch_to_account(req.session_name)
+    if not success:
+        raise HTTPException(status_code=400, detail=msg)
+    engine.tg_client = engine.pool_manager.active_client
+    engine.is_connected = True
+    acc = engine.pool_manager.get_active_account_info()
+    engine.user_display = acc["display_name"] if acc else "Telegram User"
+    await engine.broadcast_tg_status()
+    await ws_manager.broadcast(
+        "log",
+        {
+            "message": f"Switched active Telegram account to '{req.session_name}' ({engine.user_display})",
+            "level": "info",
+        },
+    )
+    return {"status": "switched", "session_name": req.session_name, "user_display": engine.user_display}
+
+
+@app.post("/api/accounts/toggle-auto-switch")
+async def api_toggle_auto_switch() -> Dict[str, Any]:
+    engine.pool_manager.auto_switch = not engine.pool_manager.auto_switch
+    await engine.broadcast_tg_status()
+    await ws_manager.broadcast(
+        "log",
+        {
+            "message": f"Auto-switch on daily limit set to: {'ENABLED' if engine.pool_manager.auto_switch else 'DISABLED'}",
+            "level": "info",
+        },
+    )
+    return {"auto_switch": engine.pool_manager.auto_switch}
+
+
+pending_auth_sessions: Dict[str, Dict[str, Any]] = {}
+
+
+@app.post("/api/accounts/request-code")
+async def api_request_code(req: RequestCodeRequest) -> Dict[str, Any]:
+    s_name = re.sub(r"[^a-zA-Z0-9_\-]", "", req.session_name.strip())
+    if not s_name:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid session name. Use alphanumeric characters and underscores.",
+        )
+
+    phone = req.phone_number.strip().replace(" ", "").replace("-", "")
+    if not phone.startswith("+"):
+        phone = "+" + phone
+
+    parsed_digits = utils.parse_phone(phone)
+    if not parsed_digits or len(parsed_digits) < 7:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid phone number format. Please provide a valid international number with country code (e.g. +88017...).",
+        )
+
+    # Clean up existing in-flight pending session for this name if any
+    if s_name in pending_auth_sessions:
+        old_client = pending_auth_sessions[s_name].get("client")
+        if old_client:
+            await _disconnect_client(old_client)
+        del pending_auth_sessions[s_name]
+
+    session_file_path = SESSIONS_DIR / s_name
+    client = TelegramClient(str(session_file_path), api_id, str(api_hash))
+
+    try:
+        await client.connect()
+        sent_code = await client.send_code_request(phone)
+        phone_code_hash = sent_code.phone_code_hash
+
+        pending_auth_sessions[s_name] = {
+            "client": client,
+            "phone": phone,
+            "phone_code_hash": phone_code_hash,
+            "session_name": s_name,
+            "created_at": datetime.now(),
+        }
+
+        return {
+            "status": "code_sent",
+            "session_name": s_name,
+            "phone": phone,
+            "message": f"Verification code sent to {phone} via Telegram app / SMS.",
+        }
+    except errors.PhoneNumberInvalidError:
+        await _disconnect_client(client)
+        raise HTTPException(
+            status_code=400,
+            detail="The phone number entered is invalid or not registered on Telegram.",
+        )
+    except errors.FloodWaitError as e:
+        await _disconnect_client(client)
+        raise HTTPException(
+            status_code=429,
+            detail=f"Telegram FloodWait: please wait {e.seconds} seconds before requesting another code.",
+        )
+    except Exception as e:
+        await _disconnect_client(client)
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/api/accounts/verify-code")
+async def api_verify_code(req: VerifyCodeRequest) -> Dict[str, Any]:
+    s_name = re.sub(r"[^a-zA-Z0-9_\-]", "", req.session_name.strip())
+    if s_name not in pending_auth_sessions:
+        raise HTTPException(
+            status_code=400,
+            detail="Verification session expired or not found. Please request a new code.",
+        )
+
+    pending = pending_auth_sessions[s_name]
+    client: TelegramClient = pending["client"]
+    phone: str = pending["phone"]
+    phone_code_hash: str = pending["phone_code_hash"]
+
+    try:
+        if req.password:
+            # Complete 2-Step Verification password login
+            await client.sign_in(password=req.password)
+        else:
+            code = req.code.strip().replace(" ", "").replace("-", "")
+            await client.sign_in(phone=phone, code=code, phone_code_hash=phone_code_hash)
+
+        # Successfully logged in!
+        me = await client.get_me()
+        user_name = "Telegram User"
+        username = ""
+        user_phone = phone
+        if isinstance(me, User):
+            first = me.first_name or ""
+            last = me.last_name or ""
+            user_name = f"{first} {last}".strip() or "Telegram User"
+            username = me.username or ""
+            user_phone = me.phone or phone
+
+        # Safely disconnect this client instance so the pool can load and manage the file
+        await _disconnect_client(client)
+        if s_name in pending_auth_sessions:
+            del pending_auth_sessions[s_name]
+
+        # Scan sessions folder to register newly saved session
+        engine.pool_manager.scan_sessions()
+        await engine.broadcast_tg_status()
+        await ws_manager.broadcast(
+            "log",
+            {
+                "message": f"🎉 Successfully connected new Telegram account: '{s_name}' ({user_name})!",
+                "level": "success",
+            },
+        )
+
+        return {
+            "status": "success",
+            "session_name": s_name,
+            "user": {
+                "name": user_name,
+                "username": f"@{username}" if username else "",
+                "phone": user_phone,
+            },
+            "message": f"Account '{user_name}' successfully connected to your session pool!",
+        }
+    except errors.SessionPasswordNeededError:
+        return {
+            "status": "password_needed",
+            "session_name": s_name,
+            "message": "Two-Step Verification (2FA) is enabled on this account. Please enter your 2FA password.",
+        }
+    except errors.PasswordHashInvalidError:
+        raise HTTPException(status_code=400, detail="Invalid 2FA password. Please check and try again.")
+    except errors.PhoneCodeInvalidError:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid Telegram verification code. Please check your Telegram app and try again.",
+        )
+    except errors.PhoneCodeExpiredError:
+        await _disconnect_client(client)
+        if s_name in pending_auth_sessions:
+            del pending_auth_sessions[s_name]
+        raise HTTPException(
+            status_code=400,
+            detail="Verification code has expired. Please request a new code.",
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/api/accounts/cancel-auth")
+async def api_cancel_auth(req: CancelAuthRequest) -> Dict[str, str]:
+    s_name = re.sub(r"[^a-zA-Z0-9_\-]", "", req.session_name.strip())
+    if s_name in pending_auth_sessions:
+        client = pending_auth_sessions[s_name].get("client")
+        if client:
+            await _disconnect_client(client)
+        del pending_auth_sessions[s_name]
+    return {"status": "cancelled"}
 
 
 @app.get("/api/export")

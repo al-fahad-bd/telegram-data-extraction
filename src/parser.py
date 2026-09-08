@@ -71,8 +71,8 @@ def parse_bot_response(raw_text: Optional[str], queried_number: str) -> Dict[str
     else:
         data["status"] = "Unknown"
 
-    # Check links
-    data["has_whatsapp"] = "whatsapp" in lower_text
-    data["has_telegram"] = "telegram" in lower_text
+    # WhatsApp and Telegram are not verified by the Truecaller bot (it only provides generic links)
+    data["has_whatsapp"] = False
+    data["has_telegram"] = False
 
     return data

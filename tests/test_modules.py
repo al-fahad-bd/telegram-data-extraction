@@ -38,8 +38,8 @@ def test_parser():
     assert parsed["carrier"] == "Grameenphone", f"Expected Grameenphone, got {parsed['carrier']}"
     assert parsed["country"] == "Bangladesh", f"Expected Bangladesh, got {parsed['country']}"
     assert parsed["status"] == "Found", f"Expected Found, got {parsed['status']}"
-    assert parsed["has_whatsapp"] is True
-    assert parsed["has_telegram"] is True
+    assert parsed["has_whatsapp"] is False
+    assert parsed["has_telegram"] is False
 
     # Test Not Found
     sample_not_found = (

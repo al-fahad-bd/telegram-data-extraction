@@ -180,6 +180,261 @@ document.addEventListener('DOMContentLoaded', () => {
     };
   }
 
+  const accountPoolSelect = document.getElementById('accountPoolSelect');
+  const btnToggleAutoSwitch = document.getElementById('btnToggleAutoSwitch');
+  const autoSwitchLabel = document.getElementById('autoSwitchLabel');
+
+  if (accountPoolSelect) {
+    accountPoolSelect.addEventListener('change', async (e) => {
+      const chosen = e.target.value;
+      try {
+        const res = await fetch('/api/accounts/switch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ session_name: chosen }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          alert(data.detail || 'Failed to switch account.');
+        }
+      } catch (err) {
+        alert(`Switch error: ${err.message}`);
+      }
+    });
+  }
+
+  if (btnToggleAutoSwitch) {
+    btnToggleAutoSwitch.addEventListener('click', async () => {
+      try {
+        await fetch('/api/accounts/toggle-auto-switch', { method: 'POST' });
+      } catch (err) {
+        console.error(err);
+      }
+    });
+  }
+
+  // --- Telegram Add Account Modal Controller ---
+  const addAccountModal = document.getElementById('addAccountModal');
+  const btnOpenAddAccountModal = document.getElementById('btnOpenAddAccountModal');
+  const btnCloseAddAccountModal = document.getElementById('btnCloseAddAccountModal');
+  const btnCancelStep1 = document.getElementById('btnCancelStep1');
+  const btnBackToStep1 = document.getElementById('btnBackToStep1');
+  const btnFinishAddAccount = document.getElementById('btnFinishAddAccount');
+
+  const step1Content = document.getElementById('step1Content');
+  const step2Content = document.getElementById('step2Content');
+  const step3Content = document.getElementById('step3Content');
+
+  const stepBadge1 = document.getElementById('stepBadge1');
+  const stepBadge2 = document.getElementById('stepBadge2');
+  const stepBadge3 = document.getElementById('stepBadge3');
+  const stepConn1 = document.getElementById('stepConn1');
+  const stepConn2 = document.getElementById('stepConn2');
+
+  const modalAlert = document.getElementById('modalAlert');
+  const modalAlertIcon = document.getElementById('modalAlertIcon');
+  const modalAlertText = document.getElementById('modalAlertText');
+
+  const newSessionName = document.getElementById('newSessionName');
+  const newPhoneNumber = document.getElementById('newPhoneNumber');
+  const btnSendCode = document.getElementById('btnSendCode');
+  const sendCodeSpinner = document.getElementById('sendCodeSpinner');
+
+  const displaySentPhone = document.getElementById('displaySentPhone');
+  const otpCodeInput = document.getElementById('otpCodeInput');
+  const group2faPassword = document.getElementById('group2faPassword');
+  const pwd2faInput = document.getElementById('pwd2faInput');
+  const btnVerifyCode = document.getElementById('btnVerifyCode');
+  const verifyCodeSpinner = document.getElementById('verifyCodeSpinner');
+
+  const successUserName = document.getElementById('successUserName');
+  const successUserMeta = document.getElementById('successUserMeta');
+
+  let inFlightSession = null;
+
+  function showModalAlert(text, type = 'error') {
+    if (!modalAlert) return;
+    modalAlert.classList.remove('hidden', 'warning', 'info');
+    if (type === 'warning') {
+      modalAlert.classList.add('warning');
+      if (modalAlertIcon) modalAlertIcon.textContent = '⚠️';
+    } else if (type === 'info') {
+      modalAlert.classList.add('info');
+      if (modalAlertIcon) modalAlertIcon.textContent = 'ℹ️';
+    } else {
+      if (modalAlertIcon) modalAlertIcon.textContent = '⛔';
+    }
+    if (modalAlertText) modalAlertText.textContent = text;
+  }
+
+  function hideModalAlert() {
+    if (!modalAlert) return;
+    modalAlert.classList.add('hidden');
+    if (modalAlertText) modalAlertText.textContent = '';
+  }
+
+  function setStep(step) {
+    hideModalAlert();
+    if (step1Content) step1Content.classList.toggle('hidden', step !== 1);
+    if (step2Content) step2Content.classList.toggle('hidden', step !== 2);
+    if (step3Content) step3Content.classList.toggle('hidden', step !== 3);
+
+    if (stepBadge1) stepBadge1.className = step === 1 ? 'step-badge active' : 'step-badge completed';
+    if (stepBadge2) stepBadge2.className = step === 2 ? 'step-badge active' : (step > 2 ? 'step-badge completed' : 'step-badge');
+    if (stepBadge3) stepBadge3.className = step === 3 ? 'step-badge active completed' : 'step-badge';
+
+    if (stepConn1) stepConn1.classList.toggle('completed', step > 1);
+    if (stepConn2) stepConn2.classList.toggle('completed', step > 2);
+  }
+
+  function openAddAccountModal() {
+    const count = accountPoolSelect ? accountPoolSelect.options.length : 1;
+    if (newSessionName) newSessionName.value = `account${count + 1}`;
+    if (newPhoneNumber) newPhoneNumber.value = '';
+    if (otpCodeInput) otpCodeInput.value = '';
+    if (pwd2faInput) pwd2faInput.value = '';
+    if (group2faPassword) group2faPassword.classList.add('hidden');
+    inFlightSession = null;
+    setStep(1);
+    if (addAccountModal) addAccountModal.classList.remove('hidden');
+    if (newPhoneNumber) newPhoneNumber.focus();
+  }
+
+  async function closeAddAccountModal() {
+    if (inFlightSession) {
+      try {
+        await fetch('/api/accounts/cancel-auth', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ session_name: inFlightSession }),
+        });
+      } catch (_) {}
+      inFlightSession = null;
+    }
+    if (addAccountModal) addAccountModal.classList.add('hidden');
+  }
+
+  if (btnOpenAddAccountModal) {
+    btnOpenAddAccountModal.addEventListener('click', openAddAccountModal);
+  }
+  if (btnCloseAddAccountModal) {
+    btnCloseAddAccountModal.addEventListener('click', closeAddAccountModal);
+  }
+  if (btnCancelStep1) {
+    btnCancelStep1.addEventListener('click', closeAddAccountModal);
+  }
+  if (btnFinishAddAccount) {
+    btnFinishAddAccount.addEventListener('click', closeAddAccountModal);
+  }
+
+  if (btnBackToStep1) {
+    btnBackToStep1.addEventListener('click', () => {
+      setStep(1);
+    });
+  }
+
+  if (btnSendCode) {
+    btnSendCode.addEventListener('click', async () => {
+      hideModalAlert();
+      const sName = (newSessionName ? newSessionName.value : '').trim();
+      const phone = (newPhoneNumber ? newPhoneNumber.value : '').trim();
+
+      if (!sName) {
+        showModalAlert('Please provide a session identifier.');
+        if (newSessionName) newSessionName.focus();
+        return;
+      }
+      if (!phone || phone.length < 8) {
+        showModalAlert('Please enter a valid international phone number with country code (e.g. +88017...).');
+        if (newPhoneNumber) newPhoneNumber.focus();
+        return;
+      }
+
+      btnSendCode.disabled = true;
+      if (sendCodeSpinner) sendCodeSpinner.classList.remove('hidden');
+
+      try {
+        const res = await fetch('/api/accounts/request-code', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ session_name: sName, phone_number: phone }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          showModalAlert(data.detail || 'Failed to send login code. Please verify the phone number.');
+          return;
+        }
+
+        inFlightSession = sName;
+        if (displaySentPhone) displaySentPhone.textContent = data.phone || phone;
+        if (otpCodeInput) otpCodeInput.value = '';
+        if (pwd2faInput) pwd2faInput.value = '';
+        if (group2faPassword) group2faPassword.classList.add('hidden');
+        setStep(2);
+        if (otpCodeInput) otpCodeInput.focus();
+      } catch (err) {
+        showModalAlert(`Network error: ${err.message}`);
+      } finally {
+        btnSendCode.disabled = false;
+        if (sendCodeSpinner) sendCodeSpinner.classList.add('hidden');
+      }
+    });
+  }
+
+  if (btnVerifyCode) {
+    btnVerifyCode.addEventListener('click', async () => {
+      hideModalAlert();
+      const code = (otpCodeInput ? otpCodeInput.value : '').trim();
+      const pwd = (pwd2faInput ? pwd2faInput.value : '').trim();
+
+      if (!code && !pwd) {
+        showModalAlert('Please enter the verification code sent to your Telegram app.');
+        if (otpCodeInput) otpCodeInput.focus();
+        return;
+      }
+
+      btnVerifyCode.disabled = true;
+      if (verifyCodeSpinner) verifyCodeSpinner.classList.remove('hidden');
+
+      try {
+        const res = await fetch('/api/accounts/verify-code', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            session_name: inFlightSession,
+            code: code,
+            password: pwd || null,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          showModalAlert(data.detail || 'Verification failed. Please check the code.');
+          return;
+        }
+
+        if (data.status === 'password_needed') {
+          if (group2faPassword) group2faPassword.classList.remove('hidden');
+          showModalAlert(data.message || 'Two-Step Verification (2FA) password required.', 'warning');
+          if (pwd2faInput) pwd2faInput.focus();
+          return;
+        }
+
+        if (data.status === 'success') {
+          inFlightSession = null;
+          if (successUserName) successUserName.textContent = data.user.name || 'Telegram User';
+          if (successUserMeta) successUserMeta.textContent = `${data.user.username || 'No handle'} • ${data.user.phone || ''}`;
+          setStep(3);
+          appendLog(`🎉 Added account '${data.session_name}' (${data.user.name}) to the pool!`, 'success');
+        }
+      } catch (err) {
+        showModalAlert(`Network error: ${err.message}`);
+      } finally {
+        btnVerifyCode.disabled = false;
+        if (verifyCodeSpinner) verifyCodeSpinner.classList.add('hidden');
+      }
+    });
+  }
+
   function handleServerMessage(msg) {
     const { type, payload } = msg;
 
@@ -196,6 +451,37 @@ document.addEventListener('DOMContentLoaded', () => {
           tgStatusLabel.textContent = `Offline: ${payload.error || 'Connecting...'}`;
           btnStart.disabled = true;
           btnSingleLookup.disabled = true;
+        }
+
+        // Update Account Pool dropdown options
+        if (accountPoolSelect && payload.accounts_pool) {
+          const currentVal = payload.active_session;
+          accountPoolSelect.innerHTML = '';
+          payload.accounts_pool.forEach((acc) => {
+            const opt = document.createElement('option');
+            opt.value = acc.session_name;
+            let statusTag = '';
+            if (acc.status === 'active') statusTag = '🟢 Active';
+            else if (acc.status === 'rate_limited') statusTag = '⏳ Limited';
+            else if (acc.status === 'unauthorized') statusTag = '⚠️ Login Req';
+            else statusTag = '⚪ Standby';
+            opt.textContent = `${statusTag}: ${acc.display_name}`;
+            if (acc.session_name === currentVal) {
+              opt.selected = true;
+            }
+            accountPoolSelect.appendChild(opt);
+          });
+        }
+
+        // Update Auto-Switch toggle button state
+        if (btnToggleAutoSwitch && autoSwitchLabel) {
+          if (payload.auto_switch) {
+            btnToggleAutoSwitch.className = 'btn-autoswitch active';
+            autoSwitchLabel.textContent = 'Auto-Switch: ON';
+          } else {
+            btnToggleAutoSwitch.className = 'btn-autoswitch inactive';
+            autoSwitchLabel.textContent = 'Auto-Switch: OFF';
+          }
         }
         break;
 
@@ -323,12 +609,12 @@ document.addEventListener('DOMContentLoaded', () => {
     else if (statusLower.includes('limit') || statusLower.includes('error')) badgeClass = 'badge-ratelimit';
 
     const waLink = record.has_whatsapp
-      ? `<a class="app-link active" href="https://wa.me/${encodeURIComponent(record.phone_number)}" target="_blank">✓ Yes</a>`
-      : `<span class="app-link">✕ No</span>`;
+      ? `<a class="app-link wa-btn" href="https://wa.me/${encodeURIComponent(record.phone_number)}" target="_blank" title="Click to open WhatsApp chat">💬 Open Chat</a>`
+      : `<span class="app-link" title="Not available">✕ No</span>`;
 
     const tgLink = record.has_telegram
-      ? `<a class="app-link active" href="https://t.me/${encodeURIComponent(record.phone_number)}" target="_blank">✓ Yes</a>`
-      : `<span class="app-link">✕ No</span>`;
+      ? `<a class="app-link tg-btn" href="https://t.me/${encodeURIComponent(record.phone_number)}" target="_blank" title="Verified Telegram Account">✓ Yes</a>`
+      : `<span class="app-link" title="Not registered on Telegram">✕ No</span>`;
 
     tr.innerHTML = `
       <td>${record.id || allRecords.length}</td>
