@@ -86,23 +86,23 @@
 ```mermaid
 flowchart TD
     subgraph UI ["Desktop UI Layer"]
-        A[Standalone App Window / Browser] <-->|WebSocket /ws| B[FastAPI Backend Server]
+        A["Standalone App Window / Browser"] <-->|"WebSocket /ws"| B["FastAPI Backend Server"]
     end
 
     subgraph Backend ["Core Python Engine"]
-        B --> C[Extractor Controller]
-        C --> D[Serial Number Generator]
-        C --> E[Telethon MTProto Client]
-        C --> F[Regex Bot Response Parser]
+        B --> C["Extractor Controller"]
+        C --> D["Serial Number Generator"]
+        C --> E["Telethon MTProto Client"]
+        C --> F["Regex Bot Response Parser"]
     end
 
     subgraph Telegram ["Telegram Network"]
-        E <-->|Encrypted MTProto| G[Telegram Cloud]
-        G <-->|Query & Response| H[@TrueCalleRobot]
+        E <-->|"Encrypted MTProto"| G["Telegram Cloud"]
+        G <-->|"Query and Response"| H["@TrueCalleRobot"]
     end
 
-    C -->|Stream Contact Records| A
-    C -->|CSV Exporter| I[(contacts.csv)]
+    C -->|"Stream Contact Records"| A
+    C -->|"CSV Exporter"| I[("contacts.csv")]
 ```
 
 ---
