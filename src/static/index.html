@@ -18,8 +18,8 @@
         <div class="brand-logo">
           <span class="brand-icon">⚡</span>
           <div class="brand-text">
-            <h1>Truecaller BD Extractor</h1>
-            <span class="brand-subtitle">Automated Serialized Intelligence Engine</span>
+            <h1>Truecaller Global Extractor</h1>
+            <span class="brand-subtitle">Worldwide Serialized Intelligence Engine</span>
           </div>
         </div>
         <div class="bot-badge">
@@ -47,20 +47,50 @@
               <span class="icon">⚙️</span>
               <h2>Serial Generator & Configuration</h2>
             </div>
-            <span class="badge-subtle">Bangladeshi Operators</span>
+            <span class="badge-subtle" id="configSubtleBadge">Worldwide Coverage 🌐</span>
           </div>
 
           <div class="form-grid">
             <div class="form-group">
-              <label for="startNumber">Starting Number</label>
-              <div class="input-wrap">
-                <span class="input-prefix">🇧🇩</span>
-                <input type="text" id="startNumber" value="+8801795664120" placeholder="+88017XXXXXXXX">
-              </div>
+              <label for="countrySelect">Target Country</label>
+              <select id="countrySelect" class="select-styled">
+                <option value="ALL">🌐 Custom / Any Country</option>
+                <option value="BD" selected>🇧🇩 Bangladesh (+880)</option>
+                <option value="US">🇺🇸 United States / Canada (+1)</option>
+                <option value="GB">🇬🇧 United Kingdom (+44)</option>
+                <option value="IN">🇮🇳 India (+91)</option>
+                <option value="PK">🇵🇰 Pakistan (+92)</option>
+                <option value="AE">🇦🇪 United Arab Emirates (+971)</option>
+                <option value="SA">🇸🇦 Saudi Arabia (+966)</option>
+                <option value="QA">🇶🇦 Qatar (+974)</option>
+                <option value="KW">🇰🇼 Kuwait (+965)</option>
+                <option value="MY">🇲🇾 Malaysia (+60)</option>
+                <option value="SG">🇸🇬 Singapore (+65)</option>
+                <option value="AU">🇦🇺 Australia (+61)</option>
+                <option value="DE">🇩🇪 Germany (+49)</option>
+                <option value="FR">🇫🇷 France (+33)</option>
+                <option value="IT">🇮🇹 Italy (+39)</option>
+                <option value="ES">🇪🇸 Spain (+34)</option>
+                <option value="TR">🇹🇷 Turkey (+90)</option>
+                <option value="BR">🇧🇷 Brazil (+55)</option>
+                <option value="ID">🇮🇩 Indonesia (+62)</option>
+                <option value="PH">🇵🇭 Philippines (+63)</option>
+                <option value="NG">🇳🇬 Nigeria (+234)</option>
+                <option value="ZA">🇿🇦 South Africa (+27)</option>
+                <option value="EG">🇪🇬 Egypt (+20)</option>
+              </select>
             </div>
 
             <div class="form-group">
-              <label for="presetOperator">Preset Operator</label>
+              <label for="startNumber">Starting Number</label>
+              <div class="input-wrap">
+                <span class="input-prefix" id="inputFlag">🇧🇩</span>
+                <input type="text" id="startNumber" value="+8801795664120" placeholder="+CountryCode & Number">
+              </div>
+            </div>
+
+            <div class="form-group" id="operatorGroup">
+              <label for="presetOperator">Preset Template</label>
               <select id="presetOperator" class="select-styled">
                 <option value="Grameenphone (017)" selected>Grameenphone (017)</option>
                 <option value="Grameenphone (013)">Grameenphone (013)</option>

@@ -47,12 +47,12 @@ def parse_bot_response(raw_text: Optional[str], queried_number: str) -> Dict[str
     if num_match:
         data["phone_number"] = num_match.group(1).strip()
 
-    # Extract Country
-    country_match = re.search(r"Country:\s*\**([^\n\*\🇧🇩]+)", text, re.IGNORECASE)
+    # Extract Country (Any country worldwide)
+    country_match = re.search(r"Country:\s*\**([^\n\*]+)", text, re.IGNORECASE)
     if country_match:
-        data["country"] = country_match.group(1).strip()
-    elif "bangladesh" in lower_text:
-        data["country"] = "Bangladesh"
+        c_raw = country_match.group(1).strip()
+        c_clean = re.sub(r"[^\w\s\-\.]", "", c_raw).strip()
+        data["country"] = c_clean if c_clean else c_raw
 
     # Extract Carrier
     carrier_match = re.search(r"Carrier:\s*\*+\s*`?([^\n`\*]+)`?", text, re.IGNORECASE) or re.search(r"Carrier:\s*`?([^\n`\*]+)`?", text, re.IGNORECASE)

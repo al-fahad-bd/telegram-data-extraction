@@ -15,7 +15,7 @@ from telethon import TelegramClient
 from telethon.tl.types import User
 
 from src.bot_handler import send_to_bot
-from src.generator import clean_bd_number, generate_serial_numbers, is_valid_bd_number
+from src.generator import clean_phone_number, generate_serial_numbers, is_valid_phone_number
 from src.parser import parse_bot_response
 from src.telegram_client import api_id, api_hash
 
@@ -772,7 +772,7 @@ class TruecallerExtractorApp(tk.Tk):
             messagebox.showwarning("Input Required", "Please enter a phone number to check.")
             return
 
-        is_valid, res = is_valid_bd_number(num)
+        is_valid, res = is_valid_phone_number(num)
         if not is_valid:
             messagebox.showerror("Invalid Number", res)
             return
@@ -794,7 +794,7 @@ class TruecallerExtractorApp(tk.Tk):
 
     def _start_automation(self) -> None:
         start_num_str = self.start_number_entry.get().strip()
-        is_valid, res = is_valid_bd_number(start_num_str)
+        is_valid, res = is_valid_phone_number(start_num_str)
         if not is_valid:
             messagebox.showerror("Invalid Start Number", res)
             return

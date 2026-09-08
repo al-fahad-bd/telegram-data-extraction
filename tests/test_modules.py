@@ -57,7 +57,34 @@ def test_parser():
     assert parsed_nf["status"] == "Not Found"
 
 
+def test_global_generator():
+    from src.generator import clean_phone_number, is_valid_phone_number
+
+    # US Number
+    valid, num = is_valid_phone_number("+12025550120")
+    assert valid and num == "+12025550120", num
+
+    us_serials = generate_serial_numbers("+12025550120", 3)
+    assert len(us_serials) == 3
+    assert us_serials == ["+12025550120", "+12025550121", "+12025550122"]
+
+    # UK Number
+    valid, num = is_valid_phone_number("+447911123450")
+    assert valid and num == "+447911123450", num
+    uk_serials = generate_serial_numbers("+447911123450", 2)
+    assert uk_serials == ["+447911123450", "+447911123451"]
+
+    # India Number
+    in_serials = generate_serial_numbers("+919876543210", 3)
+    assert in_serials == ["+919876543210", "+919876543211", "+919876543212"]
+
+    # UAE Number
+    ae_serials = generate_serial_numbers("+971501234567", 2)
+    assert ae_serials == ["+971501234567", "+971501234568"]
+
+
 if __name__ == "__main__":
     test_generator()
+    test_global_generator()
     test_parser()
-    print("All generator & parser tests passed successfully!")
+    print("All generator, parser & global country tests passed successfully!")

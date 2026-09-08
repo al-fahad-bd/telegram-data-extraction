@@ -17,7 +17,7 @@ from telethon import TelegramClient
 from telethon.tl.types import User
 
 from src.bot_handler import send_to_bot
-from src.generator import generate_serial_numbers, is_valid_bd_number
+from src.generator import GLOBAL_COUNTRY_CODES, generate_serial_numbers, is_valid_phone_number
 from src.parser import parse_bot_response
 from src.telegram_client import api_hash, api_id
 
@@ -166,7 +166,7 @@ class ExtractorEngine:
         if not self.is_connected or not self.tg_client:
             raise HTTPException(status_code=400, detail="Telegram client is not connected.")
 
-        valid, cleaned = is_valid_bd_number(phone)
+        valid, cleaned = is_valid_phone_number(phone)
         if not valid:
             raise HTTPException(status_code=400, detail=f"Invalid phone number: {cleaned}")
 
@@ -185,7 +185,7 @@ class ExtractorEngine:
             "phone_number": cleaned,
             "name": parsed.get("name", "Not Found"),
             "carrier": parsed.get("carrier", "Unknown"),
-            "country": parsed.get("country", "Bangladesh"),
+            "country": parsed.get("country", "Unknown"),
             "has_whatsapp": parsed.get("has_whatsapp", False),
             "has_telegram": parsed.get("has_telegram", False),
             "status": parsed.get("status", "Unknown"),
@@ -220,7 +220,7 @@ class ExtractorEngine:
         if not self.is_connected or not self.tg_client:
             raise HTTPException(status_code=400, detail="Telegram is not connected.")
 
-        valid, cleaned = is_valid_bd_number(start_number)
+        valid, cleaned = is_valid_phone_number(start_number)
         if not valid:
             raise HTTPException(status_code=400, detail=f"Invalid start number: {cleaned}")
 
@@ -292,7 +292,7 @@ class ExtractorEngine:
                     "phone_number": phone,
                     "name": parsed.get("name", "Not Found"),
                     "carrier": parsed.get("carrier", "Unknown"),
-                    "country": parsed.get("country", "Bangladesh"),
+                    "country": parsed.get("country", "Unknown"),
                     "has_whatsapp": parsed.get("has_whatsapp", False),
                     "has_telegram": parsed.get("has_telegram", False),
                     "status": parsed.get("status", "Unknown"),
@@ -304,7 +304,7 @@ class ExtractorEngine:
                 await ws_manager.broadcast("new_record", record)
                 await self.broadcast_metrics()
 
-                log_level = "success" if record["status"] == "Found" else "info"
+                log_level = "success" if record["status"] == "Found" else ("error" if record["status"] == "Rate Limited" else "info")
                 await ws_manager.broadcast(
                     "log",
                     {
@@ -312,6 +312,18 @@ class ExtractorEngine:
                         "level": log_level,
                     },
                 )
+
+                # If bot daily limit reached, auto-pause to avoid wasting attempts
+                if record["status"] == "Rate Limited":
+                    await ws_manager.broadcast(
+                        "log",
+                        {
+                            "message": "⚠️ Daily search limit reached on Truecaller bot. Pausing automation.",
+                            "level": "warning",
+                        },
+                    )
+                    self.is_paused = True
+                    await self.broadcast_automation_state()
 
                 # Delay before next query if not last
                 if current_index < total and not self.stop_requested:

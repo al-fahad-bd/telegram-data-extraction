@@ -42,6 +42,48 @@ document.addEventListener('DOMContentLoaded', () => {
   const consoleBody = document.getElementById('consoleBody');
   const btnClearLogs = document.getElementById('btnClearLogs');
 
+  const countrySelect = document.getElementById('countrySelect');
+  const inputFlag = document.getElementById('inputFlag');
+  const configSubtleBadge = document.getElementById('configSubtleBadge');
+
+  // Country Presets
+  const COUNTRY_PRESETS = {
+    'BD': { name: 'Bangladesh', code: '+880', flag: '🇧🇩', sample: '+8801795664120' },
+    'US': { name: 'United States / Canada', code: '+1', flag: '🇺🇸', sample: '+12025550120' },
+    'GB': { name: 'United Kingdom', code: '+44', flag: '🇬🇧', sample: '+447911123450' },
+    'IN': { name: 'India', code: '+91', flag: '🇮🇳', sample: '+919876543210' },
+    'PK': { name: 'Pakistan', code: '+92', flag: '🇵🇰', sample: '+923001234567' },
+    'AE': { name: 'United Arab Emirates', code: '+971', flag: '🇦🇪', sample: '+971501234567' },
+    'SA': { name: 'Saudi Arabia', code: '+966', flag: '🇸🇦', sample: '+966501234567' },
+    'QA': { name: 'Qatar', code: '+974', flag: '🇶🇦', sample: '+97433123456' },
+    'KW': { name: 'Kuwait', code: '+965', flag: '🇰🇼', sample: '+96590123456' },
+    'MY': { name: 'Malaysia', code: '+60', flag: '🇲🇾', sample: '+60123456789' },
+    'SG': { name: 'Singapore', code: '+65', flag: '🇸🇬', sample: '+6581234567' },
+    'AU': { name: 'Australia', code: '+61', flag: '🇦🇺', sample: '+61412345678' },
+    'DE': { name: 'Germany', code: '+49', flag: '🇩🇪', sample: '+4915123456789' },
+    'FR': { name: 'France', code: '+33', flag: '🇫🇷', sample: '+33612345678' },
+    'IT': { name: 'Italy', code: '+39', flag: '🇮🇹', sample: '+393123456789' },
+    'ES': { name: 'Spain', code: '+34', flag: '🇪🇸', sample: '+34612345678' },
+    'TR': { name: 'Turkey', code: '+90', flag: '🇹🇷', sample: '+905321234567' },
+    'BR': { name: 'Brazil', code: '+55', flag: '🇧🇷', sample: '+5511912345678' },
+    'ID': { name: 'Indonesia', code: '+62', flag: '🇮🇩', sample: '+628123456789' },
+    'PH': { name: 'Philippines', code: '+63', flag: '🇵🇭', sample: '+639171234567' },
+    'NG': { name: 'Nigeria', code: '+234', flag: '🇳🇬', sample: '+2348031234567' },
+    'ZA': { name: 'South Africa', code: '+27', flag: '🇿🇦', sample: '+27821234567' },
+    'EG': { name: 'Egypt', code: '+20', flag: '🇪🇬', sample: '+201001234567' },
+  };
+
+  function getFlagForNumber(phone) {
+    const digits = phone.replace(/\D/g, '');
+    for (const [key, item] of Object.entries(COUNTRY_PRESETS)) {
+      const cDigits = item.code.replace(/\D/g, '');
+      if (digits.startsWith(cDigits)) {
+        return item.flag;
+      }
+    }
+    return '🌐';
+  }
+
   // Operator Presets
   const OPERATOR_PRESETS = {
     'Grameenphone (017)': '+8801700000000',
@@ -53,19 +95,45 @@ document.addEventListener('DOMContentLoaded', () => {
     'Teletalk (015)': '+8801500000000',
   };
 
-  presetOperatorSelect.addEventListener('change', (e) => {
-    const selected = e.target.value;
-    const template = OPERATOR_PRESETS[selected];
-    if (template) {
-      const current = startNumberInput.value.replace(/\D/g, '');
-      if (current.length >= 11) {
-        const suffix = current.slice(3);
-        startNumberInput.value = template.slice(0, 6) + suffix;
-      } else {
-        startNumberInput.value = template;
+  if (countrySelect) {
+    countrySelect.addEventListener('change', (e) => {
+      const key = e.target.value;
+      if (key === 'ALL') {
+        inputFlag.textContent = '🌐';
+        configSubtleBadge.textContent = 'Worldwide Custom 🌐';
+        if (!startNumberInput.value.startsWith('+')) {
+          startNumberInput.value = '+';
+        }
+      } else if (COUNTRY_PRESETS[key]) {
+        const country = COUNTRY_PRESETS[key];
+        inputFlag.textContent = country.flag;
+        configSubtleBadge.textContent = `${country.name} ${country.flag}`;
+        startNumberInput.value = country.sample;
       }
-    }
+    });
+  }
+
+  startNumberInput.addEventListener('input', (e) => {
+    inputFlag.textContent = getFlagForNumber(e.target.value);
   });
+
+  if (presetOperatorSelect) {
+    presetOperatorSelect.addEventListener('change', (e) => {
+      const selected = e.target.value;
+      const template = OPERATOR_PRESETS[selected];
+      if (template) {
+        if (countrySelect) countrySelect.value = 'BD';
+        inputFlag.textContent = '🇧🇩';
+        const current = startNumberInput.value.replace(/\D/g, '');
+        if (current.length >= 11) {
+          const suffix = current.slice(3);
+          startNumberInput.value = template.slice(0, 6) + suffix;
+        } else {
+          startNumberInput.value = template;
+        }
+      }
+    });
+  }
 
   // Spinner frames
   const SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];

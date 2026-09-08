@@ -1,8 +1,8 @@
 <div align="center">
 
-# ⚡ Truecaller BD Serialized Extractor
+# ⚡ Truecaller Global Serialized Extractor
 
-**Automated Intelligence Extraction & Serialized Number Discovery Engine**
+**Automated Intelligence Extraction & Serialized Number Discovery Engine for Any Country Worldwide**
 
 [![Python Version](https://img.shields.io/badge/Python-3.9%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.128-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
@@ -13,7 +13,7 @@
 <br>
 
 <p align="center">
-  A high-performance automated pipeline for extracting caller identity records across serialized Bangladeshi mobile phone numbers via Telegram's Truecaller bot. Features an ultra-modern glassmorphic desktop graphical interface, real-time WebSocket telemetry, anti-flood delay randomization, and instant CSV export.
+  A high-performance automated pipeline for extracting caller identity records across serialized mobile phone numbers worldwide via Telegram's Truecaller bot. Supports all countries globally (USA, UK, Bangladesh, India, UAE, Saudi Arabia, etc.) or any custom international starting number. Features a modern glassmorphic desktop interface, real-time WebSocket telemetry, anti-flood delay randomization, and instant CSV export.
 </p>
 
 [Key Features](#-key-features) •
@@ -21,7 +21,7 @@
 [Quick Start](#-quick-start) •
 [Usage Modes](#-usage-modes) •
 [Architecture](#-architecture) •
-[Operator Presets](#-supported-operators) •
+[Country & Operator Presets](#-supported-countries--operators) •
 [License](#-license)
 
 ---
@@ -30,7 +30,8 @@
 
 ## 🌟 Key Features
 
-- **⚡ Serial Number Generator**: Automatically generates incremental sequences of valid Bangladeshi mobile numbers based on operator prefixes (`+88017`, `+88019`, `+88018`, `+88016`, `+88015`, `+88013`, `+88014`).
+- **🌐 Global & Arbitrary Number Serializer**: Generates sequential numbering streams starting from **any phone number in the world** across any country dial code (`+1`, `+44`, `+880`, `+91`, `+971`, `+966`, `+60`, etc.).
+- **⚡ Built-in Country & Operator Presets**: 20+ top country presets with one-click dial templates and Bangladeshi telecom operators (Grameenphone, Robi, Banglalink, Airtel, Teletalk).
 - **🖥️ Ultra-Modern Glassmorphic Desktop GUI**:
   - Standalone borderless desktop window powered by native WebKit/Chromium engine.
   - Live animated **Radar Scanner** with pulse animations.
@@ -162,17 +163,45 @@ python main.py --cli
 
 ---
 
-## 📱 Supported Operators
+## 📱 Supported Countries & Operators
+The serializer accepts **any international mobile number in the world** adhering to the E.164 standard (e.g., `+12025550120`, `+447911123450`, `+8801795664120`, `+971501234567`).
 
-The built-in serializer automatically validates prefix lengths, standardizes international numbers (`+880`), and formats serial sequences for all official Bangladeshi telecom providers:
+Top global country presets with instant templates:
 
-| Operator | Dialing Codes | Serial Prefix Format |
-| :--- | :--- | :--- |
-| **Grameenphone** | `017`, `013` | `+8801700000000`, `+8801300000000` |
-| **Robi Axiata** | `018` | `+8801800000000` |
-| **Banglalink** | `019`, `014` | `+8801900000000`, `+8801400000000` |
-| **Airtel Bangladesh** | `016` | `+8801600000000` |
-| **Teletalk** | `015` | `+8801500000000` |
+| Country | Flag | Dial Code | Example Starting Number |
+| :--- | :---: | :---: | :--- |
+| **Custom / Any Country** | 🌐 | *Any* | *Any arbitrary international number* |
+| **Bangladesh** | 🇧🇩 | `+880` | `+8801795664120` |
+| **United States / Canada** | 🇺🇸 | `+1` | `+12025550120` |
+| **United Kingdom** | 🇬🇧 | `+44` | `+447911123450` |
+| **India** | 🇮🇳 | `+91` | `+919876543210` |
+| **Pakistan** | 🇵🇰 | `+92` | `+923001234567` |
+| **United Arab Emirates** | 🇦🇪 | `+971` | `+971501234567` |
+| **Saudi Arabia** | 🇸🇦 | `+966` | `+966501234567` |
+| **Qatar** | 🇶🇦 | `+974` | `+97433123456` |
+| **Kuwait** | 🇰🇼 | `+965` | `+96590123456` |
+| **Malaysia** | 🇲🇾 | `+60` | `+60123456789` |
+| **Singapore** | 🇸🇬 | `+65` | `+6581234567` |
+| **Australia** | 🇦🇺 | `+61` | `+61412345678` |
+| **Germany** | 🇩🇪 | `+49` | `+4915123456789` |
+| **France** | 🇫🇷 | `+33` | `+33612345678` |
+| **Italy** | 🇮🇹 | `+39` | `+393123456789` |
+| **Spain** | 🇪🇸 | `+34` | `+34612345678` |
+| **Turkey** | 🇹🇷 | `+90` | `+905321234567` |
+| **Brazil** | 🇧🇷 | `+55` | `+5511912345678` |
+| **Indonesia** | 🇮🇩 | `+62` | `+628123456789` |
+| **Philippines** | 🇵🇭 | `+63` | `+639171234567` |
+| **Nigeria** | 🇳🇬 | `+234` | `+2348031234567` |
+| **South Africa** | 🇿🇦 | `+27` | `+27821234567` |
+| **Egypt** | 🇪🇬 | `+20` | `+201001234567` |
+
+### Bangladeshi Telecom Presets:
+For Bangladeshi numbers, operator sub-templates are built-in:
+- **Grameenphone**: `017`, `013`
+- **Robi Axiata**: `018`
+- **Banglalink**: `019`, `014`
+- **Airtel**: `016`
+- **Teletalk**: `015`
 
 ---
 
